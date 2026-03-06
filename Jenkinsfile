@@ -1,7 +1,6 @@
 pipeline {
 agent { label 'cnapp' }
-
-```
+    
 environment {
     IMAGE_NAME = "cnappacr2026.azurecr.io/notes-app"
     RESOURCE_GROUP = "Cnapp-RG"
@@ -133,6 +132,5 @@ stages {
         }
     }
 }
-```
 
 }
