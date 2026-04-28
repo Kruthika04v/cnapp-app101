@@ -32,18 +32,32 @@ pipeline {
 
         stage('Login to ACR') {
             steps {
-                sh 'az acr login --name $ACR_NAME'
+                sh '''
+                az acr login --name $ACR_NAME
+                '''
             }
         }
 
-        stage('Build & Push Image (FIXED)') {
+        stage('Build Docker Image (FIXED - no buildx)') {
             steps {
                 sh '''
-                docker buildx build \
-                    --platform linux/amd64 \
-                    -t $IMAGE_NAME:${BUILD_NUMBER} \
-                    -t $IMAGE_NAME:latest \
-                    --push .
+                echo "Building Docker image for AMD64..."
+
+                DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build \
+                    -t $IMAGE_NAME:${BUILD_NUMBER} .
+
+                docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
+                '''
+            }
+        }
+
+        stage('Push Image to ACR') {
+            steps {
+                sh '''
+                echo "Pushing image to Azure Container Registry..."
+
+                docker push $IMAGE_NAME:${BUILD_NUMBER}
+                docker push $IMAGE_NAME:latest
                 '''
             }
         }
@@ -51,22 +65,37 @@ pipeline {
         stage('Deploy to AKS') {
             steps {
                 sh '''
+                echo "Fetching AKS credentials..."
+
                 az aks get-credentials \
                     --resource-group $RESOURCE_GROUP \
                     --name $AKS_CLUSTER \
                     --overwrite-existing
 
+                echo "Checking cluster..."
                 kubectl get nodes
 
+                echo "Deploying Kubernetes manifests..."
                 kubectl apply -f k8s/deployment.yaml
                 kubectl apply -f k8s/service.yaml
 
+                echo "Updating image in deployment..."
                 kubectl set image deployment/notes-app \
                     notes-app=$IMAGE_NAME:${BUILD_NUMBER}
 
-                kubectl rollout status deployment/notes-app
+                echo "Waiting for rollout (max 120s)..."
+                kubectl rollout status deployment/notes-app --timeout=120s
                 '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline SUCCESS - App deployed to AKS"
+        }
+        failure {
+            echo "❌ Pipeline FAILED - check logs"
         }
     }
 }
