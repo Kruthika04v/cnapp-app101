@@ -47,12 +47,12 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image (AMD64)') {
+        stage('Build Docker Image (ARM64)') {
             steps {
                 sh '''
-                echo "Building Docker image for AMD64..."
+                echo "Building Docker image for ARM64..."
 
-                docker build --platform linux/amd64 \
+                docker build --platform linux/arm64 \
                     -t $IMAGE_NAME:${BUILD_NUMBER} .
 
                 docker tag $IMAGE_NAME:${BUILD_NUMBER} \
