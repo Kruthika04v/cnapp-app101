@@ -53,65 +53,6 @@ stages {
         }
     }
 
-    // Lacework Stage (Image + IaC Scan)
-    stage('Lacework Scan') {
-        steps {
-            withCredentials([
-                string(credentialsId: 'LW_ACCESS_TOKEN', variable: 'LW_ACCESS_TOKEN'),
-                string(credentialsId: 'LW_ACCOUNT_NAME', variable: 'LW_ACCOUNT_NAME'),
-                string(credentialsId: 'LW_API_KEY', variable: 'LW_API_KEY'),
-                string(credentialsId: 'LW_API_SECRET', variable: 'LW_API_SECRET')
-            ]) {
-                sh '''
-                echo "Downloading Lacework inline scanner..."
-                curl -L https://github.com/lacework/lacework-vulnerability-scanner/releases/latest/download/lw-scanner-linux-amd64 -o lw-scanner
-                chmod +x lw-scanner
-
-                echo "Running Lacework Image Scan..."
-
-                ./lw-scanner image evaluate \
-                    $IMAGE_NAME \
-                    ${BUILD_NUMBER} \
-                    --account-name $LW_ACCOUNT_NAME \
-                    --access-token $LW_ACCESS_TOKEN \
-                    --build-id ${BUILD_NUMBER} \
-                    --build-plan cnapp-app \
-                    --ci-build \
-                    --save \
-                    --fail-on-violation-exit-code 0
-
-                echo "Preparing env.list for IaC scan..."
-
-                echo "LW_ACCOUNT=$LW_ACCOUNT_NAME" > env.list
-                echo "LW_API_KEY=$LW_API_KEY" >> env.list
-                echo "LW_API_SECRET=$LW_API_SECRET" >> env.list
-
-                # Required so results upload to FortiCNAPP portal
-                echo "LW_SCANNER_SAVE_RESULTS=true" >> env.list
-                echo "LW_SCANNER_DISABLE_LIBRARY_PACKAGES_SCANNING=false" >> env.list
-
-                # Jenkins build metadata (recommended by Fortinet docs)
-                env | grep '^BRANCH_\\|^CHANGE_\\|^TAG_\\|^BUILD_\\|^JOB_\\|^JENKINS_\\|^GIT_' >> env.list
-
-                echo "SCAN_COMMAND=k8s-scan" >> env.list
-                echo "WORKSPACE=/app/src" >> env.list
-                echo "SCAN_DIR=k8s" >> env.list
-
-                echo "Running Lacework IaC Scan (Kubernetes YAML)..."
-
-                docker run --rm \
-                    --env-file env.list \
-                    -e EXIT_FLAG=none \
-                    -v $(pwd):/app/src \
-                    lacework/codesec-iac:stable \
-                    lacework iac scan --directory=/app/src/k8s || true
-
-                echo "Lacework scans completed"
-                '''
-            }
-        }
-    }
-
     stage('Deploy to AKS') {
         steps {
             sh '''
