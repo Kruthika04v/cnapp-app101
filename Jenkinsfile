@@ -47,22 +47,7 @@ pipeline {
             }
         }
 
-        stage('Setup Docker Buildx') {
-            steps {
-                sh '''
-                echo "Installing Docker Buildx..."
-        
-                mkdir -p ~/.docker/cli-plugins
-        
-                curl -SL https://github.com/docker/buildx/releases/latest/download/buildx-linux-amd64 \
-                    -o ~/.docker/cli-plugins/docker-buildx
-        
-                chmod +x ~/.docker/cli-plugins/docker-buildx
-        
-                docker buildx version
-                '''
-            }
-        }
+       
         stage('Build & Push Multi-Arch Image') {
             steps {
                 sh '''
