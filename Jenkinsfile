@@ -32,26 +32,18 @@ pipeline {
 
         stage('Login to ACR') {
             steps {
-                sh '''
-                az acr login --name $ACR_NAME
-                '''
+                sh 'az acr login --name $ACR_NAME'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build & Push Image (FIXED)') {
             steps {
                 sh '''
-                DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
-                docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
-                '''
-            }
-        }
-
-        stage('Push Image to ACR') {
-            steps {
-                sh '''
-                docker push $IMAGE_NAME:${BUILD_NUMBER}
-                docker push $IMAGE_NAME:latest
+                docker buildx build \
+                    --platform linux/amd64 \
+                    -t $IMAGE_NAME:${BUILD_NUMBER} \
+                    -t $IMAGE_NAME:latest \
+                    --push .
                 '''
             }
         }
@@ -64,29 +56,17 @@ pipeline {
                     --name $AKS_CLUSTER \
                     --overwrite-existing
 
-                echo "Checking cluster connection..."
                 kubectl get nodes
 
-                echo "Deploying application..."
                 kubectl apply -f k8s/deployment.yaml
                 kubectl apply -f k8s/service.yaml
 
-                echo "Updating image..."
-                kubectl set image deployment/notes-app notes-app=$IMAGE_NAME:${BUILD_NUMBER} --record
+                kubectl set image deployment/notes-app \
+                    notes-app=$IMAGE_NAME:${BUILD_NUMBER}
 
-                echo "Waiting for rollout..."
-                kubectl rollout status deployment/notes-app --timeout=120s
+                kubectl rollout status deployment/notes-app
                 '''
             }
-        }
-    }
-
-    post {
-        success {
-            echo '✅ Deployment Successful!'
-        }
-        failure {
-            echo '❌ Deployment Failed!'
         }
     }
 }
