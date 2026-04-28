@@ -41,7 +41,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker build --platform linux/amd64 -t $IMAGE_NAME:${BUILD_NUMBER} .
+                DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
                 docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
                 '''
             }
