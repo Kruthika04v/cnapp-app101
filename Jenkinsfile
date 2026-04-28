@@ -1,5 +1,5 @@
 pipeline {
-agent { label 'cnapp' }
+agent any
     
 environment {
     IMAGE_NAME = "cnappacr2026.azurecr.io/notes-app"
