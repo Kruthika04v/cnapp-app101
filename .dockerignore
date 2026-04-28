@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+venv
+node_modules
+*.log
+.bash_history
+Dockerfile
+Jenkinsfile
