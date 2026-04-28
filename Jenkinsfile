@@ -38,15 +38,15 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image (FIXED - no buildx)') {
+        stage('Build Docker Image') {
             steps {
                 sh '''
-                echo "Building Docker image for AMD64..."
-
-                DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build \
-                    -t $IMAGE_NAME:${BUILD_NUMBER} .
-
-                docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
+                docker buildx create --use || true
+        
+                docker buildx build \
+                    --platform linux/amd64 \
+                    -t cnappacr2026.azurecr.io/notes-app:${BUILD_NUMBER} \
+                    --push .
                 '''
             }
         }
