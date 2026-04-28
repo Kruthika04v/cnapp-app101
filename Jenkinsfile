@@ -2,11 +2,15 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "cnappacr2026.azurecr.io/notes-app"
+        ACR_NAME = "cnappacr2026"
+        ACR_LOGIN_SERVER = "cnappacr2026.azurecr.io"
+        IMAGE_NAME = "notes-app"
+
         RESOURCE_GROUP = "Cnapp-RG"
         AKS_CLUSTER = "myAKS-cluster"
-        ACR_NAME = "cnappacr2026"
+
         TENANT_ID = "981439d1-88ac-4c7c-bd5d-d5df66bc0f4c"
+        SUBSCRIPTION = "Kruthika's-Subscription"
     }
 
     stages {
@@ -24,7 +28,7 @@ pipeline {
                         --password $AZURE_CLIENT_SECRET \
                         --tenant $TENANT_ID
 
-                    az account set --subscription "Kruthika's-Subscription"
+                    az account set --subscription "$SUBSCRIPTION"
                     '''
                 }
             }
@@ -38,11 +42,16 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker Image (FIXED AMD64)') {
             steps {
                 sh '''
-                docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
-                docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
+                echo "Building Docker image for AMD64..."
+
+                docker build --platform linux/amd64 \
+                    -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER} .
+
+                docker tag $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER} \
+                           $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
                 '''
             }
         }
@@ -50,10 +59,10 @@ pipeline {
         stage('Push Image to ACR') {
             steps {
                 sh '''
-                echo "Pushing image to Azure Container Registry..."
+                echo "Pushing image to ACR..."
 
-                docker push $IMAGE_NAME:${BUILD_NUMBER}
-                docker push $IMAGE_NAME:latest
+                docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER}
+                docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
                 '''
             }
         }
@@ -61,7 +70,7 @@ pipeline {
         stage('Deploy to AKS') {
             steps {
                 sh '''
-                echo "Fetching AKS credentials..."
+                echo "Getting AKS credentials..."
 
                 az aks get-credentials \
                     --resource-group $RESOURCE_GROUP \
@@ -75,9 +84,9 @@ pipeline {
                 kubectl apply -f k8s/deployment.yaml
                 kubectl apply -f k8s/service.yaml
 
-                echo "Updating image in deployment..."
+                echo "Updating image..."
                 kubectl set image deployment/notes-app \
-                    notes-app=$IMAGE_NAME:${BUILD_NUMBER}
+                    notes-app=$ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER}
 
                 '''
             }
@@ -86,10 +95,11 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline SUCCESS - App deployed to AKS"
+            echo "✅ SUCCESS: App deployed to AKS"
         }
+
         failure {
-            echo "❌ Pipeline FAILED - check logs"
+            echo "❌ FAILED: Check logs for issues"
         }
     }
 }
