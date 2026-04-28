@@ -41,12 +41,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker buildx create --use || true
-        
-                docker buildx build \
-                    --platform linux/amd64 \
-                    -t cnappacr2026.azurecr.io/notes-app:${BUILD_NUMBER} \
-                    --push .
+                docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
+                docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
                 '''
             }
         }
