@@ -75,7 +75,7 @@ pipeline {
                 kubectl set image deployment/notes-app notes-app=$IMAGE_NAME:${BUILD_NUMBER} --record
 
                 echo "Waiting for rollout..."
-                kubectl rollout status deployment/notes-app
+                kubectl rollout status deployment/notes-app --timeout=120s
                 '''
             }
         }
