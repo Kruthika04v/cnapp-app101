@@ -48,20 +48,14 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image (FIX AMD64 ISSUE)') {
+        stage('Build Docker Image') {
             steps {
                 sh '''
-                echo "Building Docker image for linux/amd64..."
-
-                docker buildx create --use || true
-
-                docker buildx build \
-                    --platform linux/amd64 \
-                    -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER} \
-                    --push .
+                docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
+                docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
                 '''
+                }
             }
-        }
 
         stage('Deploy to AKS') {
             steps {
