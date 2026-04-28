@@ -17,7 +17,7 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/kruthikav04/cnapp-app.git'
+                git 'https://github.com/airo-swaraj/eventflow.git'
             }
         }
 
