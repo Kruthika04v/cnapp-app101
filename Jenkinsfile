@@ -15,6 +15,12 @@ pipeline {
 
     stages {
 
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/kruthikav04/cnapp-app.git'
+            }
+        }
+
         stage('Azure Login') {
             steps {
                 withCredentials([usernamePassword(
@@ -42,27 +48,17 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image (FIXED AMD64)') {
+        stage('Build Docker Image (FIX AMD64 ISSUE)') {
             steps {
                 sh '''
-                echo "Building Docker image for AMD64..."
+                echo "Building Docker image for linux/amd64..."
 
-                docker build --platform linux/amd64 \
-                    -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER} .
+                docker buildx create --use || true
 
-                docker tag $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER} \
-                           $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
-                '''
-            }
-        }
-
-        stage('Push Image to ACR') {
-            steps {
-                sh '''
-                echo "Pushing image to ACR..."
-
-                docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER}
-                docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
+                docker buildx build \
+                    --platform linux/amd64 \
+                    -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER} \
+                    --push .
                 '''
             }
         }
@@ -70,7 +66,7 @@ pipeline {
         stage('Deploy to AKS') {
             steps {
                 sh '''
-                echo "Getting AKS credentials..."
+                echo "Fetching AKS credentials..."
 
                 az aks get-credentials \
                     --resource-group $RESOURCE_GROUP \
@@ -80,14 +76,19 @@ pipeline {
                 echo "Checking cluster..."
                 kubectl get nodes
 
-                echo "Deploying Kubernetes manifests..."
+                echo "Applying Kubernetes manifests..."
                 kubectl apply -f k8s/deployment.yaml
                 kubectl apply -f k8s/service.yaml
 
-                echo "Updating image..."
+                echo "Updating deployment image..."
                 kubectl set image deployment/notes-app \
                     notes-app=$ACR_LOGIN_SERVER/$IMAGE_NAME:${BUILD_NUMBER}
 
+                echo "Waiting for rollout..."
+                kubectl rollout status deployment/notes-app --timeout=180s
+
+                echo "Getting pods..."
+                kubectl get pods
                 '''
             }
         }
@@ -95,11 +96,11 @@ pipeline {
 
     post {
         success {
-            echo "✅ SUCCESS: App deployed to AKS"
+            echo "✅ SUCCESS: Application deployed to AKS"
         }
 
         failure {
-            echo "❌ FAILED: Check logs for issues"
+            echo "❌ FAILED: Check logs (likely image or AKS issue)"
         }
     }
 }
