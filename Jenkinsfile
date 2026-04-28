@@ -47,27 +47,24 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image (ARM64)') {
+        stage('Build & Push Multi-Arch Image') {
             steps {
                 sh '''
-                echo "Building Docker image..."
+                echo "Setting up buildx..."
 
-                docker build --no-cache \
-                    -t $IMAGE_NAME:${BUILD_NUMBER} .
+                docker buildx create --use || true
+                docker buildx inspect --bootstrap
 
-                docker tag $IMAGE_NAME:${BUILD_NUMBER} \
-                    $IMAGE_NAME:latest
-                '''
-            }
-        }
+                echo "Enabling cross-architecture support..."
+                docker run --privileged --rm tonistiigi/binfmt --install all
 
-        stage('Push Image to ACR') {
-            steps {
-                sh '''
-                echo "Pushing image to Azure Container Registry..."
+                echo "Building and pushing multi-arch image..."
 
-                docker push $IMAGE_NAME:${BUILD_NUMBER}
-                docker push $IMAGE_NAME:latest
+                docker buildx build \
+                    --platform linux/amd64,linux/arm64 \
+                    -t $IMAGE_NAME:${BUILD_NUMBER} \
+                    -t $IMAGE_NAME:latest \
+                    --push .
                 '''
             }
         }
